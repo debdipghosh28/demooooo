@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relivio MedPredict - AI Medication Recommendation & ESP32 IoT Telemetry Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+        <div class="container header-content">
+            <div class="brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Relivio <span class="accent-text">MedPredict</span></h1>
+                    <p class="tagline">Clinical AI Decision Intelligence & ESP32 IoT Vitals Stream</p>
+                </div>
+            </div>
+            
+            <div class="header-badges">
+                <!-- ESP32 IoT Quick Launcher Button -->
+                <button type="button" id="openEsp32ModalBtn" class="btn btn-iot-pill" title="Open ESP32 IoT Connector Hub">
+                    <span class="iot-pulse-ring" id="headerIotRing"></span>
+                    <i class="fa-solid fa-microchip"></i>
+                    <span id="headerIotLabel">Hardware: Disconnected</span>
+                </button>
+
+                <div class="badge model-badge">
+                    <span class="pulse-dot"></span>
+                    <i class="fa-solid fa-brain"></i>
+                    <span>XGBoost ML Active</span>
+                </div>
+                <div class="badge metric-badge" title="Trained on clinical validation dataset">
+                    <i class="fa-solid fa-bullseye"></i>
+                    <span>Accuracy: <strong>{{ metadata.metrics.accuracy if metadata and metadata.metrics else '80.0' }}%</strong></span>
+                </div>
+                <button id="themeToggle" class="icon-btn" title="Toggle Dark/Light Mode">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container main-layout">
+
+        <!-- ===================================================================
+             ESP32 REAL-TIME TELEMETRY MONITOR & ECG WAVEFORM HUD
+             =================================================================== -->
+        <section class="card telemetry-hud-card" id="telemetryHud">
+            <div class="hud-header">
+                <div class="hud-title-group">
+                    <div class="hud-live-indicator">
+                        <span class="live-dot" id="hudLiveDot"></span>
+                        <span class="live-text" id="hudLiveText">ESP32 STANDBY</span>
+                    </div>
+                    <div class="hud-device-info">
+                        <span class="device-name" id="hudDeviceName">No Device Linked</span>
+                        <span class="device-protocol" id="hudProtocolBadge"><i class="fa-solid fa-network-wired"></i> Ready</span>
+                    </div>
+                </div>
+
+                <div class="hud-actions-group">
+                    <div class="hud-toggle-item">
+                        <label class="toggle-switch-sm" title="Auto-fill patient form when ESP32 data arrives">
+                            <input type="checkbox" id="hudAutoFillToggle" checked>
+                            <span class="slider-sm"></span>
+                        </label>
+                        <span class="toggle-label"><i class="fa-solid fa-bolt-auto"></i> Auto-Sync Form</span>
+                    </div>
+
+                    <div class="hud-toggle-item">
+                        <label class="toggle-switch-sm" title="Automatically trigger AI medication recommendation on vital change">
+                            <input type="checkbox" id="hudAutoPredictToggle">
+                            <span class="slider-sm"></span>
+                        </label>
+                        <span class="toggle-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Live AI Predict</span>
+                    </div>
+
+                    <button type="button" class="btn btn-sm btn-primary-glow" id="hudConnectBtn">
+                        <i class="fa-solid fa-microchip"></i> Connect Hardware
+                    </button>
+                </div>
+            </div>
+
+            <!-- ECG Cardiac Waveform & Dynamic Vitals Visualizer Grid -->
+            <div class="hud-body">
+                <!-- Left: Animated ECG Canvas Waveform Screen -->
+                <div class="ecg-screen-wrapper">
+                    <div class="ecg-screen-header">
+                        <span><i class="fa-solid fa-wave-square"></i> Live Cardiac Waveform (ECG Monitor)</span>
+                        <span class="ecg-rate" id="hudBpmDisplay"><strong id="ecgBpmVal">75</strong> BPM</span>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas id="ecgWaveCanvas" height="100"></canvas>
+                    </div>
+                    <div class="ecg-screen-footer">
+                        <span>Lead II • 25 mm/s • 10 mm/mV</span>
+                        <span id="hudPacketCounter"><i class="fa-solid fa-arrow-down-wide-short"></i> Packets: 0</span>
+                    </div>
+                </div>
+
+                <!-- Right: 4 Real-time Telemetry Stat Cards -->
+                <div class="vitals-stats-grid">
+                    <!-- Stat 1: Body Temperature -->
+                    <div class="vital-tile" id="tileTemp">
+                        <div class="tile-icon"><i class="fa-solid fa-temperature-half"></i></div>
+                        <div class="tile-content">
+                            <span class="tile-label">Body Temp</span>
+                            <div class="tile-value-wrap">
+                                <span class="tile-value" id="hudTemp">37.7</span>
+                                <span class="tile-unit">°C</span>
+                            </div>
+                            <span class="tile-chip mild" id="hudTempChip">Mild Pyrexia</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 2: Heart Rate -->
+                    <div class="vital-tile" id="tileHR">
+                        <div class="tile-icon pulse-anim"><i class="fa-solid fa-heart-pulse"></i></div>
+                        <div class="tile-content">
+                            <span class="tile-label">Heart Rate</span>
+                            <div class="tile-value-wrap">
+                                <span class="tile-value" id="hudHR">78</span>
+                                <span class="tile-unit">BPM</span>
+                            </div>
+                            <span class="tile-chip normal" id="hudHRChip">Normal Rhythm</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 3: SpO2 Blood Oxygen -->
+                    <div class="vital-tile" id="tileSpO2">
+                        <div class="tile-icon"><i class="fa-solid fa-lungs"></i></div>
+                        <div class="tile-content">
+                            <span class="tile-label">SpO2 Oxygen</span>
+                            <div class="tile-value-wrap">
+                                <span class="tile-value" id="hudSpO2">98.5</span>
+                                <span class="tile-unit">%</span>
+                            </div>
+                            <span class="tile-chip normal" id="hudSpO2Chip">Optimal Oxygen</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 4: Ambient Environment (AQI & Humidity) -->
+                    <div class="vital-tile" id="tileEnv">
+                        <div class="tile-icon"><i class="fa-solid fa-wind"></i></div>
+                        <div class="tile-content">
+                            <span class="tile-label">Ambient AQI / Hum</span>
+                            <div class="tile-value-wrap">
+                                <span class="tile-value" id="hudAQI">110</span>
+                                <span class="tile-unit">AQI</span>
+                            </div>
+                            <span class="tile-chip warning" id="hudEnvChip">55% Humidity</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Hardware Commands Bar -->
+            <div class="hud-quick-bar">
+                <span class="quick-label"><i class="fa-solid fa-terminal"></i> Quick ESP32 Commands:</span>
+                <div class="quick-actions">
+                    <button type="button" class="btn-micro" id="cmdSampleNow"><i class="fa-solid fa-arrows-rotate"></i> Sample Now</button>
+                    <button type="button" class="btn-micro" id="cmdToggleLed"><i class="fa-regular fa-lightbulb"></i> Toggle LED</button>
+                    <button type="button" class="btn-micro" id="cmdBeepBuzzer"><i class="fa-solid fa-volume-high"></i> Test Buzzer</button>
+                    <button type="button" class="btn-micro highlight" id="cmdSimFever"><i class="fa-solid fa-fire"></i> Trigger Fever (39.2°C)</button>
+                    <button type="button" class="btn-micro" id="cmdSimNormal"><i class="fa-solid fa-check"></i> Trigger Normal (36.6°C)</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preset Scenario Selector Bar -->
+        <section class="presets-section">
+            <div class="presets-header">
+                <span class="section-label"><i class="fa-solid fa-bolt"></i> Clinical Case Presets:</span>
+                <span class="presets-hint">Select a patient profile to populate parameters</span>
+            </div>
+            <div class="preset-pills" id="presetPillsContainer">
+                <button type="button" class="preset-pill active" data-case="mild_fever">
+                    <i class="fa-solid fa-thermometer-half"></i> Mild Viral Fever (37.7°C)
+                </button>
+                <button type="button" class="preset-pill" data-case="high_fever_body_ache">
+                    <i class="fa-solid fa-fire"></i> High Fever & Body Ache (39.2°C)
+                </button>
+                <button type="button" class="preset-pill" data-case="pediatric_mild">
+                    <i class="fa-solid fa-child"></i> Pediatric Mild (Age 8)
+                </button>
+                <button type="button" class="preset-pill" data-case="elderly_chronic">
+                    <i class="fa-solid fa-hospital-user"></i> Elderly + High BP (38.8°C)
+                </button>
+                <button type="button" class="preset-pill" data-case="normal_baseline">
+                    <i class="fa-solid fa-check-circle"></i> Normal Baseline (36.6°C)
+                </button>
+            </div>
+        </section>
+
+        <!-- Main 2-Column Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Left Column: Clinical Parameters Input Form -->
+            <div class="form-column">
+                <form id="predictionForm" class="prediction-form" autocomplete="off">
+                    
+                    <!-- Section 1: Vital Signs & Measurements -->
+                    <div class="card form-card">
+                        <div class="card-header">
+                            <div class="card-icon vitals-icon">
+                                <i class="fa-solid fa-temperature-arrow-up"></i>
+                            </div>
+                            <div>
+                                <h2>1. Vital Signs & Physical Metrics</h2>
+                                <p class="card-subtitle">Temperature, heart rate, blood pressure and BMI</p>
+                            </div>
+                        </div>
+
+                        <div class="card-body form-grid">
+                            <!-- Body Temperature with synced slider and unit toggle -->
+                            <div class="form-group full-width temp-group">
+                                <div class="label-with-unit">
+                                    <label for="temperature"><i class="fa-solid fa-thermometer"></i> Body Temperature</label>
+                                    <div class="unit-toggle" id="tempUnitToggle">
+                                        <button type="button" class="unit-btn active" data-unit="C">°C</button>
+                                        <button type="button" class="unit-btn" data-unit="F">°F</button>
+                                    </div>
+                                </div>
+                                <div class="input-slider-wrapper">
+                                    <input type="range" id="tempSlider" min="35.5" max="41.0" step="0.1" value="37.7" class="custom-slider">
+                                    <div class="numeric-input-wrap">
+                                        <input type="number" id="temperature" name="Temperature" min="35.0" max="42.0" step="0.1" value="37.7" required>
+                                        <span class="unit-label" id="tempUnitDisplay">°C</span>
+                                    </div>
+                                </div>
+                                <div class="temp-indicator-bar" id="tempIndicator">
+                                    <span class="temp-state mild"><i class="fa-solid fa-circle-dot"></i> Mild Fever (37.3°C - 38.0°C)</span>
+                                </div>
+                            </div>
+
+                            <!-- Age -->
+                            <div class="form-group">
+                                <label for="age"><i class="fa-solid fa-calendar-days"></i> Age (Years)</label>
+                                <input type="number" id="age" name="Age" min="1" max="120" value="28" required>
+                            </div>
+
+                            <!-- Gender -->
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-venus-mars"></i> Gender</label>
+                                <div class="segmented-control">
+                                    <label class="segment-option">
+                                        <input type="radio" name="Gender" value="Female" checked>
+                                        <span><i class="fa-solid fa-venus"></i> Female</span>
+                                    </label>
+                                    <label class="segment-option">
+                                        <input type="radio" name="Gender" value="Male">
+                                        <span><i class="fa-solid fa-mars"></i> Male</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- BMI with Collapsible Quick Calculator -->
+                            <div class="form-group">
+                                <div class="label-with-calc">
+                                    <label for="bmi"><i class="fa-solid fa-weight-scale"></i> BMI (kg/m²)</label>
+                                    <button type="button" class="text-link-btn" id="toggleBmiCalc">
+                                        <i class="fa-solid fa-calculator"></i> Calc
+                                    </button>
+                                </div>
+                                <input type="number" id="bmi" name="BMI" min="10" max="50" step="0.1" value="22.4" required>
+                                
+                                <div class="bmi-calc-box hidden" id="bmiCalcBox">
+                                    <div class="bmi-inputs">
+                                        <input type="number" id="calcHeight" placeholder="Height (cm)" min="50" max="250">
+                                        <input type="number" id="calcWeight" placeholder="Weight (kg)" min="10" max="250">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Heart Rate -->
+                            <div class="form-group">
+                                <label for="heartRate"><i class="fa-solid fa-heart"></i> Heart Rate (bpm)</label>
+                                <input type="number" id="heartRate" name="Heart_Rate" min="40" max="180" value="78" required>
+                            </div>
+
+                            <!-- Blood Pressure -->
+                            <div class="form-group full-width">
+                                <label><i class="fa-solid fa-gauge-high"></i> Blood Pressure Level</label>
+                                <div class="segmented-control three-opts">
+                                    <label class="segment-option">
+                                        <input type="radio" name="Blood_Pressure" value="Low">
+                                        <span><i class="fa-solid fa-arrow-down"></i> Low</span>
+                                    </label>
+                                    <label class="segment-option">
+                                        <input type="radio" name="Blood_Pressure" value="Normal" checked>
+                                        <span><i class="fa-solid fa-check"></i> Normal</span>
+                                    </label>
+                                    <label class="segment-option">
+                                        <input type="radio" name="Blood_Pressure" value="High">
+                                        <span><i class="fa-solid fa-arrow-up"></i> High</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Symptoms & Medical History -->
+                    <div class="card form-card">
+                        <div class="card-header">
+                            <div class="card-icon symptoms-icon">
+                                <i class="fa-solid fa-stethoscope"></i>
+                            </div>
+                            <div>
+                                <h2>2. Symptoms & Clinical History</h2>
+                                <p class="card-subtitle">Fever severity, pain indicators, and prior medications</p>
+                            </div>
+                        </div>
+
+                        <div class="card-body form-grid">
+                            <!-- Fever Severity -->
+                            <div class="form-group full-width">
+                                <label for="feverSeverity"><i class="fa-solid fa-triangle-exclamation"></i> Fever Severity Classification</label>
+                                <select id="feverSeverity" name="Fever_Severity" class="custom-select" required>
+                                    <option value="Normal">Normal (&lt; 37.3°C / 99.1°F)</option>
+                                    <option value="Mild Fever" selected>Mild Fever (37.3°C - 38.0°C / 99.1°F - 100.4°F)</option>
+                                    <option value="High Fever">High Fever (&gt; 38.0°C / 100.4°F)</option>
+                                </select>
+                            </div>
+
+                            <!-- Symptoms Toggle Switches Grid -->
+                            <div class="form-group full-width">
+                                <label class="group-title-label"><i class="fa-solid fa-notes-medical"></i> Patient Reported Symptoms</label>
+                                <div class="symptom-switches-grid">
+                                    
+                                    <!-- Headache -->
+                                    <div class="switch-card">
+                                        <div class="switch-info">
+                                            <i class="fa-solid fa-head-side-virus"></i>
+                                            <span>Headache</span>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="headacheSwitch" name="Headache_cb" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                        <input type="hidden" id="headache" name="Headache" value="Yes">
+                                    </div>
+
+                                    <!-- Body Ache -->
+                                    <div class="switch-card">
+                                        <div class="switch-info">
+                                            <i class="fa-solid fa-person-dots-from-line"></i>
+                                            <span>Body Ache</span>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="bodyAcheSwitch" name="Body_Ache_cb">
+                                            <span class="slider"></span>
+                                        </label>
+                                        <input type="hidden" id="bodyAche" name="Body_Ache" value="No">
+                                    </div>
+
+                                    <!-- Fatigue -->
+                                    <div class="switch-card">
+                                        <div class="switch-info">
+                                            <i class="fa-solid fa-bed"></i>
+                                            <span>Fatigue</span>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="fatigueSwitch" name="Fatigue_cb" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                        <input type="hidden" id="fatigue" name="Fatigue" value="Yes">
+                                    </div>
+
+                                    <!-- Chronic Conditions -->
+                                    <div class="switch-card">
+                                        <div class="switch-info">
+                                            <i class="fa-solid fa-lungs"></i>
+                                            <span>Chronic Conditions</span>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="chronicSwitch" name="Chronic_Conditions_cb">
+                                            <span class="slider"></span>
+                                        </label>
+                                        <input type="hidden" id="chronic" name="Chronic_Conditions" value="No">
+                                    </div>
+
+                                    <!-- Allergies -->
+                                    <div class="switch-card full-span">
+                                        <div class="switch-info">
+                                            <i class="fa-solid fa-shield-virus"></i>
+                                            <span>Known Drug / Environmental Allergies</span>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="allergiesSwitch" name="Allergies_cb">
+                                            <span class="slider"></span>
+                                        </label>
+                                        <input type="hidden" id="allergies" name="Allergies" value="No">
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- Previous Medication -->
+                            <div class="form-group full-width">
+                                <label for="previousMedication"><i class="fa-solid fa-pills"></i> Previous Medication (Taken in Last 24 Hours)</label>
+                                <select id="previousMedication" name="Previous_Medication" class="custom-select">
+                                    <option value="None" selected>None / Other</option>
+                                    <option value="Paracetamol">Paracetamol (Acetaminophen)</option>
+                                    <option value="Ibuprofen">Ibuprofen (NSAID)</option>
+                                    <option value="Aspirin">Aspirin</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Lifestyle & Environmental Factors -->
+                    <div class="card form-card">
+                        <div class="card-header">
+                            <div class="card-icon lifestyle-icon">
+                                <i class="fa-solid fa-leaf"></i>
+                            </div>
+                            <div>
+                                <h2>3. Lifestyle & Environmental Factors</h2>
+                                <p class="card-subtitle">Physical activity, diet, air quality, and habits</p>
+                            </div>
+                        </div>
+
+                        <div class="card-body form-grid">
+                            <!-- Physical Activity -->
+                            <div class="form-group">
+                                <label for="physicalActivity"><i class="fa-solid fa-person-running"></i> Physical Activity</label>
+                                <select id="physicalActivity" name="Physical_Activity" class="custom-select">
+                                    <option value="Sedentary">Sedentary (Low)</option>
+                                    <option value="Moderate" selected>Moderate (Average)</option>
+                                    <option value="Active">Active (High)</option>
+                                </select>
+                            </div>
+
+                            <!-- Diet Type -->
+                            <div class="form-group">
+                                <label for="dietType"><i class="fa-solid fa-bowl-food"></i> Diet Type</label>
+                                <select id="dietType" name="Diet_Type" class="custom-select">
+                                    <option value="Non-Vegetarian">Non-Vegetarian</option>
+                                    <option value="Vegetarian" selected>Vegetarian</option>
+                                    <option value="Vegan">Vegan</option>
+                                </select>
+                            </div>
+
+                            <!-- Smoking History -->
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-smoking"></i> Smoking History</label>
+                                <div class="segmented-control">
+                                    <label class="segment-option">
+                                        <input type="radio" name="Smoking_History" value="No" checked>
+                                        <span>No</span>
+                                    </label>
+                                    <label class="segment-option">
+                                        <input type="radio" name="Smoking_History" value="Yes">
+                                        <span>Yes</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Alcohol Consumption -->
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-wine-glass"></i> Alcohol Consumption</label>
+                                <div class="segmented-control">
+                                    <label class="segment-option">
+                                        <input type="radio" name="Alcohol_Consumption" value="No" checked>
+                                        <span>No</span>
+                                    </label>
+                                    <label class="segment-option">
+                                        <input type="radio" name="Alcohol_Consumption" value="Yes">
+                                        <span>Yes</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Air Quality Index (AQI) -->
+                            <div class="form-group">
+                                <div class="label-with-val">
+                                    <label for="aqi"><i class="fa-solid fa-wind"></i> Ambient AQI (0-500)</label>
+                                    <span class="value-chip" id="aqiChip">110 (Moderate)</span>
+                                </div>
+                                <input type="range" id="aqi" name="AQI" min="0" max="500" value="110" class="custom-slider">
+                            </div>
+
+                            <!-- Humidity (%) -->
+                            <div class="form-group">
+                                <div class="label-with-val">
+                                    <label for="humidity"><i class="fa-solid fa-droplet"></i> Ambient Humidity (%)</label>
+                                    <span class="value-chip" id="humidityChip">55%</span>
+                                </div>
+                                <input type="range" id="humidity" name="Humidity" min="20" max="100" value="55" class="custom-slider">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Action Buttons -->
+                    <div class="form-actions">
+                        <button type="submit" id="predictBtn" class="btn btn-primary btn-large">
+                            <span class="btn-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                            <span class="btn-text">Generate AI Medication Recommendation</span>
+                            <span class="btn-spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                        </button>
+                        <button type="button" id="resetBtn" class="btn btn-secondary">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- Right Column: AI Results & Clinical Decision Panel -->
+            <div class="results-column">
+                <div class="card result-card sticky-card" id="resultsContainer">
+                    
+                    <!-- Empty Initial State Placeholder -->
+                    <div class="result-placeholder" id="resultPlaceholder">
+                        <div class="placeholder-icon">
+                            <i class="fa-solid fa-prescription-bottle-medical"></i>
+                        </div>
+                        <h3>Ready for Clinical Analysis</h3>
+                        <p>Receive real-time vital streams from your ESP32 or adjust patient parameters on the left, then trigger clinical recommendation.</p>
+                        <div class="feature-highlights">
+                            <div class="highlight-item">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>Multi-factor XGBoost Machine Learning Model</span>
+                            </div>
+                            <div class="highlight-item">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>Direct ESP32 BLE / WiFi / Serial Live Telemetry Link</span>
+                            </div>
+                            <div class="highlight-item">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>Dosage Safety Guidance & Contraindication Warnings</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Active Result View -->
+                    <div class="result-content hidden" id="resultContent">
+                        
+                        <!-- Prediction Hero Badge -->
+                        <div class="prediction-hero" id="predictionHero">
+                            <div class="hero-top">
+                                <span class="hero-label">Recommended Medication</span>
+                                <span class="confidence-badge" id="confidenceBadge">95.2% Confidence</span>
+                            </div>
+                            
+                            <div class="hero-medication">
+                                <div class="med-icon" id="medIcon">
+                                    <i class="fa-solid fa-pills"></i>
+                                </div>
+                                <div class="med-details">
+                                    <h2 class="med-name" id="medName">Paracetamol</h2>
+                                    <span class="med-type-label" id="medTypeLabel">Antipyretic & Analgesic</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Probability Distribution Bars -->
+                        <div class="probability-section">
+                            <span class="section-title"><i class="fa-solid fa-chart-simple"></i> Model Probability Distribution</span>
+                            
+                            <div class="prob-bar-group">
+                                <div class="prob-labels">
+                                    <span>Paracetamol (Acetaminophen)</span>
+                                    <strong id="paracetamolProb">85.2%</strong>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill paracetamol-fill" id="paracetamolFill" style="width: 85.2%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="prob-bar-group">
+                                <div class="prob-labels">
+                                    <span>Ibuprofen (NSAID)</span>
+                                    <strong id="ibuprofenProb">14.8%</strong>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill ibuprofen-fill" id="ibuprofenFill" style="width: 14.8%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dosage & Mechanism Info Block -->
+                        <div class="info-block dosage-block">
+                            <h4><i class="fa-solid fa-clock-rotate-left"></i> Standard Dosage Guideline</h4>
+                            <p id="dosageText">500mg - 1000mg every 4 to 6 hours as needed (Max: 4000mg/24h).</p>
+                        </div>
+
+                        <div class="info-block mechanism-block">
+                            <h4><i class="fa-solid fa-dna"></i> Mechanism & Clinical Action</h4>
+                            <p id="mechanismText">Antipyretic and analgesic with central action. Gentle on gastric mucosa.</p>
+                        </div>
+
+                        <!-- Clinical Alerts / Precautions -->
+                        <div class="cautions-block hidden" id="cautionsContainer">
+                            <h4><i class="fa-solid fa-triangle-exclamation"></i> Important Clinical Warnings</h4>
+                            <ul id="cautionsList" class="cautions-list"></ul>
+                        </div>
+
+                        <!-- Clinical Insights -->
+                        <div class="insights-block" id="insightsContainer">
+                            <h4><i class="fa-solid fa-stethoscope"></i> Patient Observations & Insights</h4>
+                            <ul id="insightsList" class="insights-list"></ul>
+                        </div>
+
+                        <!-- Action Bar for Results -->
+                        <div class="result-actions">
+                            <button type="button" class="btn btn-outline" id="printReportBtn">
+                                <i class="fa-solid fa-print"></i> Print Clinical Report
+                            </button>
+                            <button type="button" class="btn btn-outline" id="copyResultBtn">
+                                <i class="fa-solid fa-copy"></i> Copy Text
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Insights & Performance Drawer -->
+        <section class="card model-info-card">
+            <div class="card-header toggle-header" id="toggleModelInfo">
+                <div class="card-icon info-icon">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <div class="header-text-flex">
+                    <div>
+                        <h2>XGBoost Model Architecture & Performance Metrics</h2>
+                        <p class="card-subtitle">Inspect training metrics, feature rankings, and validation results</p>
+                    </div>
+                    <i class="fa-solid fa-chevron-down chevron-icon" id="infoChevron"></i>
+                </div>
+            </div>
+            
+            <div class="card-body model-info-body hidden" id="modelInfoBody">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-val">{{ metadata.metrics.accuracy if metadata and metadata.metrics else '80.0' }}%</span>
+                        <span class="metric-lbl">Validation Accuracy</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-val">{{ metadata.metrics.roc_auc if metadata and metadata.metrics else '100.0' }}%</span>
+                        <span class="metric-lbl">ROC-AUC Score</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-val">{{ metadata.metrics.f1_score if metadata and metadata.metrics else '88.89' }}%</span>
+                        <span class="metric-lbl">F1-Score</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-val">{{ metadata.features|length if metadata and metadata.features else '19' }}</span>
+                        <span class="metric-lbl">Engineered Features</span>
+                    </div>
+                </div>
+
+                <div class="feature-importance-box">
+                    <h3>Primary Predictive Biomarkers & Features:</h3>
+                    <p class="explanation-note">The model evaluates temperature pyrexia thresholds, inflammatory pain indicators (body ache, headache), patient blood pressure, age, and previous medication response to differentiate antipyretic efficacy.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===================================================================
+         ESP32 IOT HARDWARE HUB & PAIRING MODAL DIALOG
+         =================================================================== -->
+    <div class="modal-backdrop hidden" id="esp32Modal">
+        <div class="modal-window">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-icon"><i class="fa-solid fa-microchip"></i></div>
+                    <div>
+                        <h2>Hardware IoT Hub & Device Port Console</h2>
+                        <p>Connect your ESP32 or Arduino Uno microcontroller via USB COM Port, Bluetooth (BLE), WiFi, or Virtual Simulator</p>
+                    </div>
+                </div>
+                <button type="button" class="close-modal-btn" id="closeEsp32ModalBtn">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Modal Tabs -->
+                <div class="modal-tabs">
+                    <button type="button" class="tab-btn active" data-tab="tab-serial">
+                        <i class="fa-solid fa-microchip"></i> Device Port (USB Serial)
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-wifi">
+                        <i class="fa-solid fa-wifi"></i> WiFi Link / SSE
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-ble">
+                        <i class="fa-brands fa-bluetooth-b"></i> Web Bluetooth (BLE)
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-sim">
+                        <i class="fa-solid fa-gamepad"></i> Virtual Simulator
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-firmware">
+                        <i class="fa-solid fa-code"></i> Firmware & Wiring
+                    </button>
+                </div>
+
+                <!-- Tab 1: Device Port & USB Serial Hub (ESP32 & Arduino Uno) - ACTIVE BY DEFAULT -->
+                <div class="tab-content active" id="tab-serial">
+                    <div class="tab-pane-grid">
+                        <div class="pane-action-card">
+                            <div class="card-header-flex">
+                                <div>
+                                    <h3><i class="fa-solid fa-microchip"></i> Hardware Device Port & Serial Console</h3>
+                                    <p>Connect your <strong>ESP32</strong> or <strong>Arduino Uno</strong> microcontroller via USB COM port to stream live vitals directly into Relivio MedPredict.</p>
+                                </div>
+                            </div>
+
+                            <!-- Board Selection Bar -->
+                            <div class="board-selector-wrap">
+                                <label class="section-sublabel"><i class="fa-solid fa-layer-group"></i> Select Target Hardware Board:</label>
+                                <div class="board-toggle-group">
+                                    <button type="button" class="board-pill active" id="pillBoardEsp32" data-board="ESP32">
+                                        <i class="fa-solid fa-bolt"></i> ESP32 Dev Module (115200 Baud)
+                                    </button>
+                                    <button type="button" class="board-pill" id="pillBoardUno" data-board="Arduino Uno">
+                                        <i class="fa-solid fa-microchip"></i> Arduino Uno (ATmega328P)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Real-time Port Connection Status Banner -->
+                            <div class="connection-status-box" id="serialStatusBox">
+                                <span class="status-indicator-dot disconnected" id="serialDot"></span>
+                                <span class="status-text" id="serialStatusText">No COM Port Connected • Click "Scan Ports" below</span>
+                            </div>
+
+                            <!-- Port Selection & Scanner Row -->
+                            <div class="port-config-grid">
+                                <div class="form-group">
+                                    <div class="label-with-calc">
+                                        <label for="serialPortSelect"><i class="fa-solid fa-network-wired"></i> Detected Device COM Port:</label>
+                                        <button type="button" class="btn-micro" id="btnScanSerialPorts" title="Refresh Windows COM Ports">
+                                            <i class="fa-solid fa-arrows-rotate"></i> Scan Ports
+                                        </button>
+                                    </div>
+                                    <select id="serialPortSelect" class="custom-select">
+                                        <option value="">-- Scanning Windows COM Ports... --</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="serialBaudRate"><i class="fa-solid fa-gauge-high"></i> Baud Rate:</label>
+                                    <select id="serialBaudRate" class="custom-select">
+                                        <option value="115200" selected>115200 Baud (Standard ESP32 & Uno)</option>
+                                        <option value="9600">9600 Baud (Legacy Arduino Uno)</option>
+                                        <option value="57600">57600 Baud</option>
+                                        <option value="230400">230400 Baud (High Speed ESP32)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Action Connection Buttons -->
+                            <div class="button-row" style="margin-top: 1.25rem;">
+                                <button type="button" class="btn btn-primary btn-large" id="btnBackendSerialConnect">
+                                    <i class="fa-solid fa-plug"></i> Connect via Server (PySerial)
+                                </button>
+                                <button type="button" class="btn btn-outline" id="btnSerialConnect" title="Connect using in-browser Web Serial API (Chrome/Edge)">
+                                    <i class="fa-brands fa-chrome"></i> In-Browser Web Serial
+                                </button>
+                                <button type="button" class="btn btn-secondary hidden" id="btnSerialDisconnect">
+                                    <i class="fa-solid fa-power-off"></i> Disconnect Serial Port
+                                </button>
+                            </div>
+
+                            <!-- Quick Hardware Remote Control Bar -->
+                            <div class="quick-commands-panel" id="serialCommandsPanel">
+                                <span class="commands-label"><i class="fa-solid fa-terminal"></i> Quick Hardware Commands:</span>
+                                <div class="command-buttons-flex">
+                                    <button type="button" class="btn-micro" id="cmdToggleLed"><i class="fa-solid fa-lightbulb"></i> Toggle LED</button>
+                                    <button type="button" class="btn-micro" id="cmdBeepBuzzer"><i class="fa-solid fa-volume-high"></i> Beep Buzzer</button>
+                                    <button type="button" class="btn-micro" id="cmdSampleNow"><i class="fa-solid fa-bolt"></i> Sample Now</button>
+                                    <button type="button" class="btn-micro" id="cmdResetCounter"><i class="fa-solid fa-rotate"></i> Reset Count</button>
+                                </div>
+                            </div>
+
+                            <!-- Device Manager Troubleshooting & Driver Helper Accordion -->
+                            <div class="troubleshooting-guide-card">
+                                <div class="guide-header">
+                                    <i class="fa-solid fa-circle-question info-icon"></i>
+                                    <h4>ESP32 or Arduino Uno not showing in Windows Device Manager?</h4>
+                                </div>
+                                <div class="guide-body">
+                                    <p>If your device does not appear under <strong>Device Manager &rarr; Ports (COM & LPT)</strong>, follow these 3 steps:</p>
+                                    <ol class="steps-list">
+                                        <li>
+                                            <strong>Install the USB-to-UART Driver</strong> (Required for Windows to create a COM port):
+                                            <div class="driver-links-grid">
+                                                <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html" target="_blank" rel="noopener noreferrer" class="driver-link-pill">
+                                                    <i class="fa-solid fa-download"></i> <strong>CH340 / CH341 Driver</strong> (WCH Official) &bull; Common for ESP32 & Uno Clones
+                                                </a>
+                                                <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener noreferrer" class="driver-link-pill">
+                                                    <i class="fa-solid fa-download"></i> <strong>CP2102 / CP2104 Driver</strong> (Silicon Labs) &bull; NodeMCU & ESP32 DevKit
+                                                </a>
+                                                <a href="https://ftdichip.com/drivers/vcp-drivers/" target="_blank" rel="noopener noreferrer" class="driver-link-pill">
+                                                    <i class="fa-solid fa-download"></i> <strong>FTDI VCP Driver</strong> &bull; FT232 USB Serial
+                                                </a>
+                                            </div>
+                                        </li>
+                                        <li>
+                                            <strong>Check Your USB Cable:</strong> Many micro-USB and USB-C cables are <em>charge-only</em> (lack data lines). Use a verified data sync cable.
+                                        </li>
+                                        <li>
+                                            <strong>PlatformIO in Cursor / VSCodium:</strong>
+                                            Once the driver is installed and the board is plugged in, PlatformIO will automatically detect the port. You can upload with:
+                                            <div class="code-snippet-box">
+                                                <code>pio run -e esp32dev -t upload</code> (for ESP32) or <code>pio run -e uno -t upload</code> (for Arduino Uno)
+                                            </div>
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: WiFi Link / SSE -->
+                <div class="tab-content" id="tab-wifi">
+                    <div class="tab-pane-grid">
+                        <div class="pane-action-card">
+                            <h3><i class="fa-solid fa-wifi"></i> WiFi IoT Hub & SSE Stream</h3>
+                            <p>Receive live telemetry packets pushed from ESP32 devices over your local WiFi network in real-time.</p>
+
+                            <div class="wifi-options-grid">
+                                <!-- Option A: Flask SSE Hub -->
+                                <div class="sub-card">
+                                    <h4><i class="fa-solid fa-tower-broadcast"></i> Mode A: Relivio Server-Sent Events (SSE)</h4>
+                                    <p>ESP32 HTTP POSTs telemetry to <code>http://&lt;PC_IP&gt;:5000/api/esp32/telemetry</code> and Flask pushes to browser instantly.</p>
+                                    <button type="button" class="btn btn-primary" id="btnWifiSseConnect">
+                                        <i class="fa-solid fa-satellite-dish"></i> Subscribe to WiFi Hub (SSE)
+                                    </button>
+                                </div>
+
+                                <!-- Option B: Direct Local IP Polling -->
+                                <div class="sub-card">
+                                    <h4><i class="fa-solid fa-network-wired"></i> Mode B: Direct ESP32 IP REST Polling</h4>
+                                    <p>Connect directly to ESP32 onboard webserver via local IP or mDNS.</p>
+                                    <div class="ip-input-row">
+                                        <input type="text" id="wifiEsp32Ip" placeholder="192.168.1.100 or esp32-relivio.local" value="192.168.1.100">
+                                        <button type="button" class="btn btn-secondary" id="btnWifiDirectPoll">
+                                            <i class="fa-solid fa-link"></i> Connect IP
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="button-row" style="margin-top: 1rem;">
+                                <button type="button" class="btn btn-secondary hidden" id="btnWifiDisconnect">
+                                    <i class="fa-solid fa-power-off"></i> Disconnect WiFi Link
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Web Bluetooth (BLE) -->
+                <div class="tab-content" id="tab-ble">
+                    <div class="tab-pane-grid">
+                        <div class="pane-action-card">
+                            <h3><i class="fa-brands fa-bluetooth"></i> Direct Web Bluetooth Connection</h3>
+                            <p>Pairs directly with ESP32 advertising <code>Relivio-ESP32-Vitals</code> over GATT characteristics. No drivers or dongles needed (Chrome/Edge/Opera).</p>
+                            
+                            <div class="connection-status-box" id="bleStatusBox">
+                                <span class="status-indicator-dot disconnected" id="bleDot"></span>
+                                <span class="status-text" id="bleStatusText">Ready to pair with ESP32</span>
+                            </div>
+
+                            <div class="button-row">
+                                <button type="button" class="btn btn-primary btn-large" id="btnBleConnect">
+                                    <i class="fa-brands fa-bluetooth-b"></i> Scan & Connect ESP32
+                                </button>
+                                <button type="button" class="btn btn-secondary hidden" id="btnBleDisconnect">
+                                    <i class="fa-solid fa-power-off"></i> Disconnect
+                                </button>
+                            </div>
+
+                            <div class="specs-box">
+                                <strong>Supported GATT Profiles:</strong>
+                                <ul>
+                                    <li>Relivio Custom Vitals Service: <code>4fafc201-1fb5-459e-8fcc-c5c9c331914b</code></li>
+                                    <li>Nordic UART Service (NUS): <code>6e400001-b5a3-f393-e0a9-e50e24dcca9e</code></li>
+                                    <li>Health Thermometer Standard (0x1809) & Heart Rate (0x180D)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Virtual Hardware Simulator -->
+                <div class="tab-content" id="tab-sim">
+                    <div class="pane-action-card">
+                        <div class="sim-header">
+                            <div>
+                                <h3><i class="fa-solid fa-gamepad"></i> Interactive Virtual ESP32 Hardware Simulator</h3>
+                                <p>Simulate realistic MAX30102 pulse oximeter & DS18B20 body temp sensor streams to test the entire AI pipeline.</p>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btnSimToggle">
+                                <i class="fa-solid fa-play"></i> Start Virtual Stream
+                            </button>
+                        </div>
+
+                        <!-- Simulator Controls Grid -->
+                        <div class="sim-controls-grid">
+                            <!-- Temp knob -->
+                            <div class="sim-control-group">
+                                <div class="label-with-val">
+                                    <label><i class="fa-solid fa-temperature-half"></i> Sim Body Temp (°C)</label>
+                                    <span class="value-chip" id="simTempVal">38.2°C</span>
+                                </div>
+                                <input type="range" id="simTemp" min="35.5" max="41.5" step="0.1" value="38.2" class="custom-slider">
+                            </div>
+
+                            <!-- HR knob -->
+                            <div class="sim-control-group">
+                                <div class="label-with-val">
+                                    <label><i class="fa-solid fa-heart-pulse"></i> Sim Heart Rate (BPM)</label>
+                                    <span class="value-chip" id="simHRVal">88 BPM</span>
+                                </div>
+                                <input type="range" id="simHR" min="45" max="160" step="1" value="88" class="custom-slider">
+                            </div>
+
+                            <!-- SpO2 knob -->
+                            <div class="sim-control-group">
+                                <div class="label-with-val">
+                                    <label><i class="fa-solid fa-lungs"></i> Sim SpO2 Oxygen (%)</label>
+                                    <span class="value-chip" id="simSpO2Val">97.5%</span>
+                                </div>
+                                <input type="range" id="simSpO2" min="88" max="100" step="0.1" value="97.5" class="custom-slider">
+                            </div>
+
+                            <!-- AQI knob -->
+                            <div class="sim-control-group">
+                                <div class="label-with-val">
+                                    <label><i class="fa-solid fa-wind"></i> Sim Ambient AQI</label>
+                                    <span class="value-chip" id="simAQIVal">110</span>
+                                </div>
+                                <input type="range" id="simAQI" min="10" max="400" step="5" value="110" class="custom-slider">
+                            </div>
+                        </div>
+
+                        <!-- Presets for simulator -->
+                        <div class="sim-presets-bar">
+                            <span>Quick Simulation Scenarios:</span>
+                            <button type="button" class="btn-micro" id="simPresetFever"><i class="fa-solid fa-fire"></i> High Fever (39.2°C, 96 BPM)</button>
+                            <button type="button" class="btn-micro" id="simPresetNormal"><i class="fa-solid fa-check"></i> Normal Baseline (36.6°C, 72 BPM)</button>
+                            <button type="button" class="btn-micro" id="simPresetTachycardia"><i class="fa-solid fa-bolt"></i> Tachycardia (38.5°C, 115 BPM)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Firmware & Wiring Guide -->
+                <div class="tab-content" id="tab-firmware">
+                    <div class="pane-action-card">
+                        <h3><i class="fa-solid fa-file-code"></i> Ready-to-Flash ESP32 Arduino Firmware (.ino)</h3>
+                        <p>Download and flash these pre-configured Arduino sketches into your ESP32 board using Arduino IDE or PlatformIO.</p>
+
+                        <!-- Download Cards Grid -->
+                        <div class="firmware-cards-grid">
+                            <div class="fw-card">
+                                <div class="fw-icon"><i class="fa-solid fa-microchip"></i></div>
+                                <h4>Relivio_Arduino_Uno.ino</h4>
+                                <p>Optimized firmware for Arduino Uno (ATmega328P) streaming JSON telemetry at 115200 baud.</p>
+                                <a href="/api/firmware/Relivio_Arduino_Uno.ino" download class="btn btn-outline btn-sm">
+                                    <i class="fa-solid fa-download"></i> Download .ino
+                                </a>
+                            </div>
+
+                            <div class="fw-card">
+                                <div class="fw-icon"><i class="fa-solid fa-microchip"></i></div>
+                                <h4>Relivio_ESP32_Universal.ino</h4>
+                                <p>All-in-one ESP32 sketch supporting BLE, WiFi, USB Serial, MAX30102 & DS18B20 sensors.</p>
+                                <a href="/api/firmware/Relivio_ESP32_Universal.ino" download class="btn btn-outline btn-sm">
+                                    <i class="fa-solid fa-download"></i> Download .ino
+                                </a>
+                            </div>
+
+                            <div class="fw-card">
+                                <div class="fw-icon"><i class="fa-brands fa-bluetooth-b"></i></div>
+                                <h4>Relivio_ESP32_BLE.ino</h4>
+                                <p>Bluetooth Low Energy GATT server advertising Relivio Vitals service and streaming JSON telemetry.</p>
+                                <a href="/api/firmware/Relivio_ESP32_BLE.ino" download class="btn btn-outline btn-sm">
+                                    <i class="fa-solid fa-download"></i> Download .ino
+                                </a>
+                            </div>
+
+                            <div class="fw-card">
+                                <div class="fw-icon"><i class="fa-solid fa-wifi"></i></div>
+                                <h4>Relivio_ESP32_WiFi.ino</h4>
+                                <p>WiFi HTTP Client posting to Relivio Flask API + local REST WebServer on port 80 with CORS.</p>
+                                <a href="/api/firmware/Relivio_ESP32_WiFi.ino" download class="btn btn-outline btn-sm">
+                                    <i class="fa-solid fa-download"></i> Download .ino
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Circuit Schematics & Pinout Guide -->
+                        <div class="wiring-guide-box">
+                            <h4><i class="fa-solid fa-diagram-project"></i> ESP32 Sensor Wiring Pinouts</h4>
+                            <div class="pin-table-wrapper">
+                                <table class="pin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Sensor</th>
+                                            <th>Sensor Pin</th>
+                                            <th>ESP32 GPIO</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>MAX30102</strong> (Pulse Oximeter)</td>
+                                            <td>SDA / SCL / VCC / GND</td>
+                                            <td>GPIO 21 (SDA) / GPIO 22 (SCL)</td>
+                                            <td>3.3V Power, I2C Bus</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>DS18B20</strong> (Body Temp)</td>
+                                            <td>DATA / VCC / GND</td>
+                                            <td>GPIO 4</td>
+                                            <td>Requires 4.7kΩ pull-up resistor to 3.3V</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>DHT11 / DHT22</strong> (Humidity)</td>
+                                            <td>DATA / VCC / GND</td>
+                                            <td>GPIO 5</td>
+                                            <td>3.3V Power</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Status LED</strong></td>
+                                            <td>Anode (+)</td>
+                                            <td>GPIO 2 (Onboard Blue LED)</td>
+                                            <td>Blinks on telemetry transmission</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Embedded Cyberpunk Diagnostic Log Terminal -->
+                <div class="terminal-card">
+                    <div class="terminal-header">
+                        <span><i class="fa-solid fa-terminal"></i> Live Diagnostic Stream Log</span>
+                        <button type="button" class="btn-micro" id="btnClearLog"><i class="fa-solid fa-trash"></i> Clear</button>
+                    </div>
+                    <div class="terminal-body" id="esp32TerminalBody">
+                        <div class="terminal-line info"><span class="t-time">[00:00:00]</span> Relivio IoT Telemetry Hub Initialized. Ready for connection.</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer with medical disclaimer -->
+    <footer class="app-footer">
+        <div class="container footer-content">
+            <p class="disclaimer-text">
+                <i class="fa-solid fa-circle-info"></i> <strong>Clinical Decision Support Disclaimer:</strong> Relivio MedPredict is an AI-assisted diagnostic prototype powered by machine learning algorithms. It is designed to assist clinical evaluation and is not a substitute for professional medical consultation, diagnosis, or treatment.
+            </p>
+            <p class="copyright">&copy; 2026 Relivio Health Intelligence • Powered by XGBoost, Web Bluetooth & ESP32 IoT</p>
+        </div>
+    </footer>
+
+    <!-- Toast Notification Container -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/esp32_connector.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
