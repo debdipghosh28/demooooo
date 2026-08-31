@@ -47,11 +47,11 @@
 // =====================================================================================
 // 1. CONFIGURATION: WIFI & RELIVIO SERVER SETTINGS
 // =====================================================================================
-const char* WIFI_SSID     = "YOUR_WIFI_NAME";        // <-- Put your WiFi Name here
-const char* WIFI_PASS     = "YOUR_WIFI_PASSWORD";    // <-- Put your WiFi Password here
+const char* WIFI_SSID     = "ESP32";        // <-- Put your WiFi Name here
+const char* WIFI_PASS     = "esp32_1234";    // <-- Put your WiFi Password here
 
 // IP of the computer running 'python app.py' (Detected on your Wi-Fi: 192.168.1.6)
-const char* SERVER_URL    = "http://192.168.1.6:5000/api/esp32/telemetry";
+const char* SERVER_URL    = "http://127.0.0.1:5000/api/esp32/telemetry";
 
 // Hardware Identification
 const char* DEVICE_ID     = "ESP32-RELIVIO-01";
@@ -167,6 +167,7 @@ void sendTelemetryToFlask() {
     Serial.printf("[Relivio Cloud] POST %d OK | %s\n", httpResponseCode, response.c_str());
 
     // Execute remote queued commands from Flask server if any returned
+    if (response.indexOf("LED_TOGGLE") >= 0) digitalWrite(LED_PIN, !digitalRead(LED_PIN));
     if (response.indexOf("LED_ON") >= 0) digitalWrite(LED_PIN, HIGH);
     if (response.indexOf("LED_OFF") >= 0) digitalWrite(LED_PIN, LOW);
     if (response.indexOf("BEEP") >= 0 && BUZZER_PIN > 0) tone(BUZZER_PIN, 1200, 200);
@@ -174,6 +175,27 @@ void sendTelemetryToFlask() {
     Serial.printf("[Relivio Cloud] POST Error: %s (Code: %d)\n", http.errorToString(httpResponseCode).c_str(), httpResponseCode);
   }
   http.end();
+}
+
+void handleSerialCommands() {
+  if (!Serial.available()) return;
+
+  String cmd = Serial.readStringUntil('\n');
+  cmd.trim();
+  cmd.toUpperCase();
+
+  if (cmd == "LED_TOGGLE") digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+  else if (cmd == "LED_ON") digitalWrite(LED_PIN, HIGH);
+  else if (cmd == "LED_OFF") digitalWrite(LED_PIN, LOW);
+  else if (cmd == "BEEP" && BUZZER_PIN > 0) tone(BUZZER_PIN, 1500, 200);
+  else if (cmd == "HIGH_FEVER") { bodyTemperature = 39.4; heartRate = 96; symptomBodyAche = "Yes"; }
+  else if (cmd == "NORMAL_FEVER") { bodyTemperature = 36.6; heartRate = 72; symptomBodyAche = "No"; symptomHeadache = "No"; }
+
+  if (cmd.length() > 0) {
+    Serial.print("{\"ack\":\"");
+    Serial.print(cmd);
+    Serial.println("\",\"status\":\"OK\"}");
+  }
 }
 
 // =====================================================================================
@@ -205,7 +227,8 @@ void handleCommandEndpoint() {
     Serial.print("[REST Command Received]: ");
     Serial.println(cmd);
 
-    if (cmd == "LED_ON") digitalWrite(LED_PIN, HIGH);
+    if (cmd == "LED_TOGGLE") digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    else if (cmd == "LED_ON") digitalWrite(LED_PIN, HIGH);
     else if (cmd == "LED_OFF") digitalWrite(LED_PIN, LOW);
     else if (cmd == "BEEP" && BUZZER_PIN > 0) tone(BUZZER_PIN, 1500, 200);
     else if (cmd == "HIGH_FEVER") { bodyTemperature = 39.4; heartRate = 96; symptomBodyAche = "Yes"; }
@@ -275,6 +298,8 @@ void setup() {
 }
 
 void loop() {
+  handleSerialCommands();
+
   // Handle local HTTP requests if WiFi is active
   if (WiFi.status() == WL_CONNECTED) {
     server.handleClient();

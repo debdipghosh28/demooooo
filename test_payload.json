@@ -1,0 +1,21 @@
+{
+  "Temperature": 39.2,
+  "Fever_Severity": "High Fever",
+  "Age": 38,
+  "Gender": "Male",
+  "BMI": 25.8,
+  "Headache": "Yes",
+  "Body_Ache": "Yes",
+  "Fatigue": "Yes",
+  "Chronic_Conditions": "No",
+  "Allergies": "No",
+  "Smoking_History": "No",
+  "Alcohol_Consumption": "No",
+  "Humidity": 68,
+  "AQI": 160,
+  "Physical_Activity": "Active",
+  "Diet_Type": "Non-Vegetarian",
+  "Heart_Rate": 94,
+  "Blood_Pressure": "Normal",
+  "Previous_Medication": "Paracetamol"
+}

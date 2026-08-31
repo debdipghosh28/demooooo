@@ -77,7 +77,9 @@ class CommandCallbacks: public BLECharacteristicCallbacks {
         Serial.print("[BLE Command Received]: ");
         Serial.println(cmd);
 
-        if (cmd == "LED_ON") {
+        if (cmd == "LED_TOGGLE") {
+          digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+        } else if (cmd == "LED_ON") {
           digitalWrite(LED_PIN, HIGH);
         } else if (cmd == "LED_OFF") {
           digitalWrite(LED_PIN, LOW);
