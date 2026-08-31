@@ -1,0 +1,120 @@
+{
+  "features": [
+    "Temperature",
+    "Fever_Severity",
+    "Alcohol_Consumption",
+    "Fatigue",
+    "Physical_Activity",
+    "Humidity",
+    "Headache",
+    "Diet_Type",
+    "Gender",
+    "AQI",
+    "Heart_Rate",
+    "Allergies",
+    "Smoking_History",
+    "Blood_Pressure",
+    "Chronic_Conditions",
+    "Body_Ache",
+    "Age",
+    "BMI",
+    "Previous_Medication"
+  ],
+  "metrics": {
+    "accuracy": 80.0,
+    "precision": 80.0,
+    "recall": 100.0,
+    "f1_score": 88.89,
+    "roc_auc": 100.0,
+    "confusion_matrix": [
+      [
+        0,
+        50
+      ],
+      [
+        0,
+        200
+      ]
+    ],
+    "best_iteration": 18
+  },
+  "feature_importance": {
+    "Temperature": 100.0
+  },
+  "ranges": {
+    "Temperature": {
+      "min": 36.0,
+      "max": 40.0,
+      "mean": 38.1,
+      "median": 38.2
+    },
+    "Age": {
+      "min": 1.0,
+      "max": 100.0,
+      "mean": 51.15,
+      "median": 51.0
+    },
+    "BMI": {
+      "min": 18.0,
+      "max": 35.0,
+      "mean": 26.44,
+      "median": 26.5
+    },
+    "Humidity": {
+      "min": 30.0,
+      "max": 90.0,
+      "mean": 60.59,
+      "median": 60.95
+    },
+    "AQI": {
+      "min": 0.0,
+      "max": 499.0,
+      "mean": 248.49,
+      "median": 247.5
+    },
+    "Heart_Rate": {
+      "min": 60.0,
+      "max": 100.0,
+      "mean": 80.14,
+      "median": 80.0
+    }
+  },
+  "mappings": {
+    "Fever_Severity": {
+      "Normal": 0,
+      "Mild Fever": 1,
+      "High Fever": 2
+    },
+    "Gender": {
+      "Female": 0,
+      "Male": 1
+    },
+    "No_Yes": {
+      "No": 0,
+      "Yes": 1
+    },
+    "Physical_Activity": {
+      "Sedentary": 0,
+      "Moderate": 1,
+      "Active": 2
+    },
+    "Diet_Type": {
+      "Non-Vegetarian": 0,
+      "Vegetarian": 1,
+      "Vegan": 2
+    },
+    "Blood_Pressure": {
+      "Low": -1,
+      "Normal": 0,
+      "High": 1
+    },
+    "Previous_Medication": {
+      "Paracetamol": -1,
+      "Ibuprofen": 1
+    },
+    "Medication_Target": {
+      "Paracetamol": 0,
+      "Ibuprofen": 1
+    }
+  }
+}
