@@ -5,3 +5,4 @@ pandas>=2.2.0
 numpy>=1.26.0
 matplotlib>=3.9.0
 seaborn>=0.13.0
+pyserial>=3.5

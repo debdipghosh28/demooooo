@@ -85,7 +85,10 @@ void processIncomingCommands() {
     cmd.toUpperCase();
     if (cmd.length() == 0) return;
 
-    if (cmd == "LED_ON") {
+    if (cmd == "LED_TOGGLE") {
+      digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN));
+      Serial.println(F("{\"ack\":\"LED_TOGGLE\",\"status\":\"OK\"}"));
+    } else if (cmd == "LED_ON") {
       digitalWrite(STATUS_LED_PIN, HIGH);
       Serial.println(F("{\"ack\":\"LED_ON\",\"status\":\"OK\"}"));
     } else if (cmd == "LED_OFF") {

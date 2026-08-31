@@ -74,6 +74,7 @@ class CommandHandler: public BLECharacteristicCallbacks {
       Serial.print("[CMD RECEIVED]: "); Serial.println(cmd);
       
       if (cmd == "BEEP") tone(BUZZER_PIN, 1500, 200);
+      else if (cmd == "LED_TOGGLE") digitalWrite(LED_PIN, !digitalRead(LED_PIN));
       else if (cmd == "LED_ON") digitalWrite(LED_PIN, HIGH);
       else if (cmd == "LED_OFF") digitalWrite(LED_PIN, LOW);
       else if (cmd == "FEVER_HIGH") { temperature = 39.4; heartRate = 96; bodyAche = "Yes"; }
