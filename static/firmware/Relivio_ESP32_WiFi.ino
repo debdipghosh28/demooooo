@@ -75,7 +75,8 @@ void handleCommand() {
     Serial.print("[WiFi REST Command]: ");
     Serial.println(cmd);
     
-    if (cmd == "LED_ON") digitalWrite(LED_PIN, HIGH);
+    if (cmd == "LED_TOGGLE") digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    else if (cmd == "LED_ON") digitalWrite(LED_PIN, HIGH);
     else if (cmd == "LED_OFF") digitalWrite(LED_PIN, LOW);
     else if (cmd == "BEEP") tone(BUZZER_PIN, 1200, 150);
     else if (cmd == "FEVER_HIGH") { bodyTemp = 39.2; heartRate = 98; }
